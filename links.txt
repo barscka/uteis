@@ -1,0 +1,3 @@
+https://veesp.com/en/blog/how-to-setup-squid-on-ubuntu
+https://medium.com/@joelgarciajr84/servidor-proxy-invisivel-firewall-squid-sarg-dhcp-b9a10d9de09d
+https://www.howtoforge.com/nat-gateway-iptables-port-forwarding-dns-and-dhcp-setup-ubuntu-8.10-server

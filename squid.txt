@@ -1,0 +1,328 @@
+###################################################
+# pacotes de compilacao
+###################################################
+
+Se, e somente se, voce usar o OpenSuse (altamente recomendado), digite o comando abaixo para instalar os pacotes necessarios:
+
+yast2 -i findutils readline glibc-devel findutils-locate gcc flex lynx compat-readline4 db-devel wget gcc-c++ subversion make vim telnet cron iptables iputils man man-pages nano pico sudo perl-TimeDate python libacl-devel libblkid-devel gnutls-devel readline-devel python-devel gdb pkgconfig  nss-pam-ldapd openldap2 cups-devel pam-devel  openldap2-client krb5-client krb5-devel openldap2-devel  python-ldap 
+
+----------
+
+Se, e somente se, voce usar o Redhat ou CentOS, digite o comando abaixo para instalar os pacotes necessarios:
+
+yum install libacl-devel e2fsprogs-devel gnutls-devel readline-devel python-devel gdb gcc gcc-c++ cups-devel openldap-servers openldap-clients openldap-devel pam-devel ctdb-devel openldap-devel libsmbclient libacl-devel libblkid-devel gnutls-devel readline-devel python-devel gdb pkgconfig krb5-workstation zlib-devel setroubleshoot-server setroubleshoot-plugins policycoreutils-python popt-devel libpcap-devel sqlite-devel libidn-devel libsemanage-python setools-libs-python setools-libs libxml2-devel libacl-devel libsepol-devel libattr-devel keyutils-libs-devel cyrus-sasl-devel
+
+----------
+
+Se, e somente se, voce usar o Debian ou Ubuntu, digite o comando abaixo para instalar os pacotes necessarios:
+
+apt-get install build-essential gcc libacl1-dev libattr1-dev libblkid-dev libgnutls-dev libreadline-dev python-dev python-dnspython gdb pkg-config libpopt-dev libldap2-dev dnsutils libbsd-dev attr krb5-user docbook-xsl libcups2-dev acl chkconfig
+
+----------
+usar a parte grafica para colocar no AD
+
+net rpc join -Uadministrator
+net ads testjoin -Uadministrator
+net rpc trustdom list -Uadministrator
+net ads user -U administrator
+net ads group -U administrator
+wbinfo -a administrator%1eimg2eimm!
+wbinfo -D certificacao
+wbinfo -t
+wbinfo -i administrator
+wbinfo -u
+wbinfo -g
+
+
+groupadd squid
+useradd -g squid -d /var/cache/squid -s /bin/false squid
+chown root:squid  /var/lib/samba/winbindd_privileged
+chmod 750 /var/lib/samba/winbindd_privileged
+
+yast2 -i findutils readline glibc-devel findutils-locate gcc flex lynx compat-readline4 db-devel wget gcc-c++ subversion make
+
+wget http://www.squid-cache.org/Versions/v3/3.3/squid-3.3.3-20130314-r12516.tar.gz
+
+vi /etc/hosts
+10.211.55.13 linux-g3rv.certificacao.com linux-g3rv
+10.211.55.18 linux-14u6.certificacao.com linux-14u6
+
+
+###################################################
+# colocando o linux no AD
+###################################################
+vi /etc/resolv.conf
+trocar o ip do DNS para o IP do AD
+
+trocar o IP do servidor de NTP
+vi /etc/ntpd.conf
+server a.ntp.br  iburst prefer
+server b.ntp.br  iburst prefer
+
+
+# compilar o squid
+./configure --prefix=/usr/local/squid --enable-icap-client --enable-auth --enable-basic-auth-helpers --enable-ntlm-auth-helpers --enable-external-acl-helpers
+make
+make install
+
+
+vi /usr/local/squid/etc/squid.conf
+
+cache_effective_user   squid
+cache_effective_group  squid
+
+visible_hostname linux-jw8v.certificacao.com
+
+# para autenticacao basica
+auth_param ntlm program /usr/bin/ntlm_auth --helper-protocol=squid-2.5-ntlmssp
+auth_param ntlm children 15
+
+auth_param basic program /usr/bin/ntlm_auth --helper-protocol=squid-2.5-basic
+auth_param basic children 15
+auth_param basic realm Squid proxy-caching web server
+auth_param basic credentialsttl 5 hours
+
+
+acl NTLMUsers proxy_auth REQUIRED
+http_access allow all NTLMUsers
+
+
+#para autenticacao por grupo
+auth_param ntlm program /usr/bin/ntlm_auth --helper-protocol=squid-2.5-ntlmssp
+auth_param ntlm children 15
+
+auth_param basic program /usr/bin/ntlm_auth --helper-protocol=squid-2.5-basic
+auth_param basic children 15
+auth_param basic realm Squid proxy-caching web server
+auth_param basic credentialsttl 5 hours
+
+acl NTLMUsers proxy_auth REQUIRED
+
+external_acl_type wbinfo_check %LOGIN /usr/local/squid/lib/ext_wbinfo_group_acl
+acl allowed_group external wbinfo_check AcessoTotal
+
+http_access allow allowed_group
+
+acl sites_liberados   url_regex -i "/usr/local/squid/etc/sites_liberados"
+
+http_access allow sites_liberados
+
+
+###################################################
+# autenticacao no AD
+###################################################
+
+auth_param ntlm program /usr/bin/ntlm_auth --helper-protocol=squid-2.5-ntlmssp
+auth_param ntlm children 5
+auth_param basic program /usr/bin/ntlm_auth --helper-protocol=squid-2.5-basic
+auth_param basic children 5
+auth_param basic realm Squid proxy-caching web server
+auth_param basic credentialsttl 5 hours
+
+# verifica se faz parte do grupo Acesso Total
+external_acl_type wbinfo_check %LOGIN /usr/local/squid/lib/ext_wbinfo_group_acl
+acl allowed_group external wbinfo_check AcessoTotal
+http_access allow allowed_group
+
+###################################################
+# sites que estao liberados
+###################################################
+
+acl sites_liberados   url_regex -i "/usr/local/squid/etc/sites_liberados"
+http_access allow sites_liberados
+
+###################################################
+# liberar por IP
+###################################################
+acl ips_liberados src "/usr/local/squid/etc/ips_liberados"
+http_access allow ips_liberados
+
+###################################################
+# liberar por MAC
+###################################################
+acl maquinas_liberadas arp -i "/usr/local/squid/etc/maquinas_liberadas"
+http_access allow maquinas_liberadas
+
+
+###################################################
+# fechar facebook em um determinado periodo
+###################################################
+acl fb dstdomain .facebook.com
+acl officetime time MTWHFA 10:00-11:00
+http_reply_access deny  fb localnet officetime
+http_access deny CONNECT fb localnet  officetime
+
+###################################################
+# fechar video em flash
+###################################################
+acl deny_rep_mime_flashvideo rep_mime_type mms
+acl deny_rep_mime_flashvideo rep_mime_type video/flv
+acl deny_rep_mime_flashvideo rep_mime_type video/x-flv
+acl deny_rep_mime_flashvideo rep_mime_type video/mp4 
+acl deny_rep_mime_flashvideo rep_mime_type video/3gpp
+acl deny_rep_mime_flashvideo rep_mime_type video/webm 
+acl deny_rep_mime_flashvideo rep_mime_type video/x-ms-asf
+http_reply_access deny deny_rep_mime_flashvideo 
+
+acl mediapr url_regex dvrplayer mediastream ^mms://
+acl mediapr urlpath_regex \.(afx|asf)(\?.*)?$
+acl mediapr urlpath_regex \.flv(\?.*)?$
+acl mediapr urlpath_regex \.swf(\?.*)?$
+http_access deny mediapr
+
+
+###################################################
+# fechar todo youtube
+###################################################
+acl youtube_domains dstdomain .youtube.com .googlevideo.com .ytimg.com
+http_access deny youtube_domains
+
+
+###################################################
+# fechar skype
+###################################################
+acl numeric_IPs dstdom_regex ^(([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)|(\[([0-9af]+)?:([0-9af:]+)?:([0-9af]+)?\])):443
+acl Skype_UA browser ^skype
+http_access deny numeric_IPS
+http_access deny Skype_UA
+
+###################################################
+# fechar Yahoo! Messenger
+###################################################
+acl ym dstdomain .messenger.yahoo.com .psq.yahoo.com
+acl ym dstdomain .us.il.yimg.com .msg.yahoo.com .pager.yahoo.com
+acl ym dstdomain .rareedge.com .ytunnelpro.com .chat.yahoo.com
+acl ym dstdomain .voice.yahoo.com
+acl ymregex url_regex yupdater.yim ymsgr myspaceim
+acl ym dstdomain .skype.com .imvu.com
+http_access deny ym
+http_access deny ymregex
+
+###################################################
+# proxy transparente
+###################################################
+
+SQUIDIP=10.211.55.14
+SQUIDPORT=3128
+
+# No prompt de comandos
+# do firewall para outra maquina
+iptables -t nat -A PREROUTING -s $SQUIDIP -p tcp --dport 80 -j ACCEPT
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to-destination $SQUIDIP:$SQUIDPORT
+iptables -t nat -A POSTROUTING -j MASQUERADE
+iptables -t mangle -A PREROUTING -p tcp --dport $SQUIDPORT -j DROP
+
+# na propria maquina
+iptables -t nat -A PREROUTING -s $SQUIDIP -p tcp --dport 80 -j ACCEPT
+iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port $SQUIDPORT
+iptables -t nat -A POSTROUTING -j MASQUERADE
+iptables -t mangle -A PREROUTING -p tcp --dport $SQUIDPORT -j DROP
+
+
+###################################################
+# anti-virus
+###################################################
+
+
+# instalando o clamav
+yast 
+
+ou 
+
+se for o opensuse 12.3
+wget http://download.opensuse.org/distribution/12.2/repo/oss/suse/noarch/clamav-db-0.97.5-1.1.3.noarch.rpm
+rpm -Uvi clamav-db-0.97.5-1.1.3.noarch.rpm 
+
+
+yum install clamav clamav-scanner clamav-update clamav-devel
+
+# iniciar o daemon do clamav
+/etc/init.d/clamd start
+
+# update das definicoes de antivirus
+freshclam
+
+
+# baixando o servidor de i-cap
+wget http://downloads.sourceforge.net/project/c-icap/c-icap/0.2.x/c_icap-0.2.5.tar.gz
+tar xvzf c_icap-0.2.5.tar.gz 
+cd c_icap-0.2.5/
+./configure --prefix=/usr/local/c-icap --enable-large-files
+vi Makefile
+procurar a linha 211 com o comando : 211
+CFLAGS = -lpthread -D_REENTRANT -g -O2 -Wall -D_FILE_OFFSET_BITS=64
+
+
+make
+make install
+vi /usr/local/c-icap/etc/c-icap.conf
+# ultima linha
+Service squidclamav squidclamav.so
+
+mkdir -p /var/run/c-icap/
+chown -R squid:squid /var/run/c-icap/
+chown -R squid:squid /usr/local/c-icap/
+
+# baixando o squidclamav
+wget http://downloads.sourceforge.net/project/squidclamav/squidclamav/6.10/squidclamav-6.10.tar.gz
+tar xvzf squidclamav-6.10.tar.gz 
+
+cd squidclamav-6.10/
+./configure --with-c-icap=/usr/local/c-icap/
+make
+make install
+
+# verificar em qual socket clamd trabalha
+netstat -anp |grep clam
+
+vi /etc/squidclamav.conf
+
+#alterar a linha para o socket que o clamd trabalha
+clamd_local /var/lib/clamav/clamd-socket
+
+# verifique que o i-cap esta habilitado
+/usr/local/squid/sbin/squid -v | grep "enable-icap-client"
+
+# regras no squid.conf do i-cap
+icap_enable on
+icap_send_client_ip on
+icap_send_client_username on
+icap_client_username_encode off
+icap_client_username_header X-Authenticated-User
+icap_preview_enable on
+icap_preview_size 1024
+icap_service service_req reqmod_precache bypass=1 icap://127.0.0.1:1344/squidclamav
+adaptation_access service_req allow all
+icap_service service_resp respmod_precache bypass=1 icap://127.0.0.1:1344/squidclamav
+adaptation_access service_resp allow all
+
+
+# chamar o c-icap
+/usr/local/c-icap/bin/c-icap
+
+ou modo debug
+
+/usr/local/c-icap/bin/c-icap -N -D -d 10
+
+###################################################
+# dans-guardian
+###################################################
+
+
+wget http://downloads.sourceforge.net/project/dansguardian/dansguardian-2.12.0.3.tar.bz2
+
+tar xvjf dansguardian-2.12.0.3.tar.bz2 
+
+./configure
+make
+make install
+
+vi /usr/local/etc/dansguardian/dansguardian.conf
+
+
+zypper addrepo http://download.opensuse.org/repositories/Education/openSUSE_12.1/ opensuse-education-x86_64
+zypper install dansguardian
+
+#para ler o access.log com data em formato "humano"
+
+cat access.log| perl -nwe 's/^(\d+)/localtime($1)/e; print'
